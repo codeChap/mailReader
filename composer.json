@@ -1,0 +1,23 @@
+{
+    "name": "codechap/mail-reader",
+    "description": "PHP package for reading emails from mail servers",
+    "license": "mit",
+    "version": "1.0.0",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Codechap\\MailReader\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "CodeChap",
+            "email": "hello@codechap.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.0",
+        "ext-imap": "*"
+    }
+}

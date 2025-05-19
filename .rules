@@ -1,0 +1,56 @@
+# AI Package Construction Rules for PHP API Wrappers
+
+## Package Structure
+- Create a modular PHP package following PSR-4 standards
+- Use namespacing that follows the pattern Vendor\PackageName
+- Implement a core service class as the main entry point
+- Place reusable traits in a separate Traits directory
+- Follow PHP 8.0+ standards with type declarations and return types
+
+## The GetSet Trait
+The GetSet trait is REQUIRED in all implementations and should:
+- Provide dynamic property access with validation
+- Include get() and set() methods that check if properties exist
+- Throw appropriate exceptions for nonexistent properties
+- Return $this in set() methods to allow method chaining
+- Implement param and return type hints
+
+## Core Service Class Design
+- Core service classes should use the GetSet trait
+- Define API endpoints as class constants
+- Define configuration properties as private class properties
+- Implement a primary action method (like send()) that handles API communication
+- Include proper input validation before making API requests
+- Handle errors gracefully with appropriate exceptions
+
+## API Communication
+- Use native PHP functions or simple HTTP clients for API requests
+- Validate all inputs before sending to the API
+- Format request data according to the API's requirements
+- Properly authenticate requests using credentials set via GetSet
+- Return structured responses, preferably as objects
+- Include error handling for failed requests
+
+## Documentation
+- Provide a clear README with installation and usage instructions
+- Include code examples for common use cases
+- Document all public methods with PHPDoc comments
+- Note required dependencies in composer.json
+
+## Testing Considerations
+- Keep the design testable with separable concerns
+- Ensure methods have clear inputs and outputs
+- Allow for mocking of external dependencies
+
+## Composer Configuration
+- Specify appropriate dependencies
+- Use semantic versioning
+- Include proper package metadata (description, license, authors)
+- Configure PSR-4 autoloading
+
+## Code Style
+- Follow a consistent style with proper indentation
+- Use strong typing where possible
+- Keep methods focused on single responsibilities
+- Use descriptive variable and method names
+- Use type hinting for parameters and return types

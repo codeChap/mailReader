@@ -49,8 +49,7 @@ class MailReader
         if ($dsn !== null) {
             $this->set('dsn', $dsn);
         }
-    return $this->buildConnectionString($parsedDsn, $this->mailbox);
-}
+    }
 
 /**
  * Deletes an email from the server.

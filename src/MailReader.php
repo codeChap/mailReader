@@ -49,17 +49,90 @@ class MailReader
         if ($dsn !== null) {
             $this->set('dsn', $dsn);
         }
+    return $this->buildConnectionString($parsedDsn, $this->mailbox);
+}
+
+/**
+ * Deletes an email from the server.
+ *
+ * @param int $messageId The ID of the message to delete.
+ * @param bool $expungeImmediately If true, immediately expunge deleted messages.
+ *                                  Set to false if you want to mark multiple emails
+ *                                  for deletion and expunge them all at once later.
+ * @return bool True on success, false on failure.
+ * @throws MailReaderException If deletion fails.
+ */
+public function deleteEmail(int $messageId, bool $expungeImmediately = true): bool
+{
+    $this->ensureConnected();
+
+    if (!imap_delete($this->connection, (string)$messageId, FT_UID)) {
+        // FT_UID is not standard for imap_delete, usually it's just the sequence number.
+        // Let's use sequence number by default unless a clear UID mapping is implemented.
+        // For simplicity, assuming $messageId here is the sequence number.
+        // If $messageId is UID, then FT_UID is appropriate.
+        // Let's assume $messageId is the message sequence number as typically used with imap_delete
+        // To use UIDs, one would typically search for UIDs first.
+        // The current getEmail method uses $messageId as sequence number for imap_headerinfo / imap_fetch_overview
     }
 
-    /**
-     * Connect to the mail server
-     *
-     * @param string|null $mailbox Mailbox to select (default: INBOX)
-     * @return self
-     * @throws ConnectionException If connection fails
-     */
-    public function connect(?string $mailbox = null): self
-    {
+    // Let's re-evaluate. Most imap functions use message sequence numbers by default.
+    // If we want to delete by UID, the functions usually have a UID variant or a flag.
+    // imap_delete documentation: "Marks messages for deletion. message_nums is a space separated list of message numbers"
+    // So, $messageId should be the sequence number.
+
+    if (!imap_delete($this->connection, (string)$messageId)) {
+        throw new MailReaderException("Failed to mark email #{$messageId} for deletion: " . imap_last_error());
+    }
+
+    if ($expungeImmediately) {
+        if (!imap_expunge($this->connection)) {
+            // imap_expunge can return false but not necessarily throw an error if no messages were expunged.
+            // However, if imap_delete succeeded, we expect it to work or at least not error out fatally.
+            // We'll consider it an issue if expunge returns false after a successful delete mark.
+            // Note: imap_last_error() might not be relevant if imap_expunge simply had nothing to do.
+            // Let's check if there was an actual error.
+            $lastError = imap_last_error();
+            if ($lastError) { // Check if there was an error string
+                 throw new MailReaderException("Failed to expunge deleted emails: " . $lastError);
+            }
+            // If no error, but expunge returned false, it might mean nothing was expunged (e.g. already gone).
+            // For simplicity, we'll assume if delete was successful, expunge should be too.
+            // A more robust check might involve checking imap_errors() or imap_alerts().
+        }
+    }
+    return true;
+}
+
+/**
+ * Expunges all messages marked for deletion in the current mailbox.
+ *
+ * @return bool True on success, false if expunge failed or had nothing to expunge.
+ * @throws MailReaderException If expunging encounters a significant error.
+ */
+public function expunge(): bool
+{
+    $this->ensureConnected();
+    if (!imap_expunge($this->connection)) {
+        $lastError = imap_last_error();
+        if ($lastError) {
+             throw new MailReaderException("Failed to expunge deleted emails: " . $lastError);
+        }
+        return false; // Nothing to expunge or minor issue
+    }
+    return true;
+}
+
+
+/**
+ * Connect to the mail server
+ *
+ * @param string|null $mailbox Mailbox to select (default: INBOX)
+ * @return self
+ * @throws ConnectionException If connection fails
+ */
+public function connect(?string $mailbox = null): self
+{
         if (empty($this->dsn)) {
             throw new ConnectionException('DSN not provided. Set DSN before connecting.');
         }

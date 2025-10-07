@@ -241,14 +241,30 @@ public function connect(?string $mailbox = null): self
     }
 
     /**
+     * Get count of unread messages
+     *
+     * @return int Number of unread messages
+     * @throws MailReaderException If getting count fails
+     */
+    public function getUnreadCount(): int
+    {
+        $this->ensureConnected();
+        
+        $messageIds = imap_search($this->connection, 'UNSEEN');
+        return is_array($messageIds) ? count($messageIds) : 0;
+    }
+
+    /**
      * Get all emails from the current mailbox
      *
      * @param bool $onlyUnread Only return unread messages
      * @param int|null $limit Maximum number of messages to return
+     * @param int $offset Starting offset for pagination
+     * @param bool $includeBody Whether to include message body (default: false for performance)
      * @return array List of message data
      * @throws MailReaderException If getting messages fails
      */
-    public function getEmails(bool $onlyUnread = false, ?int $limit = null): array
+    public function getEmails(bool $onlyUnread = false, ?int $limit = null, int $offset = 0, bool $includeBody = false): array
     {
         $this->ensureConnected();
         
@@ -263,7 +279,10 @@ public function connect(?string $mailbox = null): self
         // Sort newest first
         rsort($messageIds);
         
-        // Apply limit if specified
+        // Apply offset and limit
+        if ($offset > 0) {
+            $messageIds = array_slice($messageIds, $offset);
+        }
         if ($limit !== null && is_numeric($limit)) {
             $messageIds = array_slice($messageIds, 0, $limit);
         }
@@ -271,7 +290,66 @@ public function connect(?string $mailbox = null): self
         // Fetch emails
         $emails = [];
         foreach ($messageIds as $messageId) {
-            $emails[] = $this->getEmail($messageId);
+            $emails[] = $this->getEmail($messageId, $includeBody);
+        }
+        
+        return $emails;
+    }
+
+    /**
+     * Get email overviews (headers only, very fast)
+     * 
+     * This method is optimized for listing emails without fetching body content.
+     * It's significantly faster than getEmails() when you only need headers.
+     * 
+     * @param bool $onlyUnread Only return unread messages
+     * @param int|null $limit Maximum number of messages to return
+     * @param int $offset Starting offset for pagination
+     * @return array List of email overviews with basic information
+     * @throws MailReaderException If getting overviews fails
+     */
+    public function getEmailOverviews(bool $onlyUnread = false, ?int $limit = null, int $offset = 0): array
+    {
+        $this->ensureConnected();
+        
+        // Get message IDs based on criteria
+        $searchCriteria = $onlyUnread ? 'UNSEEN' : 'ALL';
+        $messageIds = imap_search($this->connection, $searchCriteria);
+        
+        if (!$messageIds) {
+            return [];
+        }
+        
+        // Sort newest first
+        rsort($messageIds);
+        
+        // Apply offset and limit
+        if ($offset > 0) {
+            $messageIds = array_slice($messageIds, $offset);
+        }
+        if ($limit !== null && is_numeric($limit)) {
+            $messageIds = array_slice($messageIds, 0, $limit);
+        }
+        
+        // Fetch email overviews (fast, no body content)
+        $emails = [];
+        foreach ($messageIds as $messageId) {
+            $overview = imap_fetch_overview($this->connection, (string)$messageId, 0);
+            if (!empty($overview)) {
+                $info = $overview[0];
+                $emails[] = [
+                    'id'       => $messageId,
+                    'uid'      => $info->uid ?? 0,
+                    'subject'  => $this->decodeHeader($info->subject ?? ''),
+                    'from'     => $this->decodeHeader($info->from ?? ''),
+                    'to'       => $this->decodeHeader($info->to ?? ''),
+                    'date'     => $info->date ?? '',
+                    'size'     => $info->size ?? 0,
+                    'seen'     => (bool)($info->seen ?? false),
+                    'flagged'  => (bool)($info->flagged ?? false),
+                    'answered' => (bool)($info->answered ?? false),
+                ];
+            }
         }
         
         return $emails;

@@ -1,8 +1,8 @@
 {
     "name": "codechap/mail-reader",
-    "description": "PHP package for reading emails from mail servers",
+    "description": "PHP package for reading emails from mail servers with high-performance listing capabilities",
     "license": "mit",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "minimum-stability": "dev",
     "prefer-stable": true,
     "autoload": {
